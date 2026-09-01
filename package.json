@@ -15,7 +15,8 @@
     "lint": "eslint src --ext .ts",
     "test": "node --test --import tsx test/**/*.test.ts",
     "smoke": "node test/smoke.mjs",
-    "contract": "node test/contract.mjs"
+    "contract": "node test/contract.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

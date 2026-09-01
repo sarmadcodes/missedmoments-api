@@ -7,11 +7,16 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
 
   fastify.get('/', async req => ({
     notifications: await query(
+      // A one-sided like is anonymous by design: that is the whole product.
+      // The actor is kept on the row (a match later needs it) but must never
+      // be revealed here, or the notification feed unmasks Quiet Admirers.
       `SELECT n.id, n.kind, n.body,
               n.created_at AS "createdAt",
               n.read_at    AS "readAt",
-              a.name       AS "actorName",
-              p.url        AS "actorPhotoUrl"
+              CASE WHEN n.kind = 'like' THEN NULL ELSE a.name END
+                           AS "actorName",
+              CASE WHEN n.kind = 'like' THEN NULL ELSE p.url END
+                           AS "actorPhotoUrl"
          FROM notifications n
          LEFT JOIN users a ON a.id = n.actor_id AND a.status = 'active'
          LEFT JOIN user_photos p ON p.user_id = a.id AND p.is_primary

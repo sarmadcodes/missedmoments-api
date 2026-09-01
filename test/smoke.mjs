@@ -243,6 +243,25 @@ const run = async () => {
   const readNow = await call('/v1/likes/matches', { token: B });
   check('unread clears after read', readNow.data?.matches?.[0]?.unreadCount === 0);
 
+  console.log('\n== anonymity ==');
+  const bobNotes = await call('/v1/notifications', { token: B });
+  const likeNotes = (bobNotes.data?.notifications ?? []).filter(
+    n => n.kind === 'like',
+  );
+  check('bob got a like notification', likeNotes.length > 0);
+  check(
+    'a one-sided like never reveals who sent it',
+    likeNotes.every(n => !n.actorName && !n.actorPhotoUrl),
+    JSON.stringify(likeNotes.map(n => n.actorName)),
+  );
+  const matchNotes = (bobNotes.data?.notifications ?? []).filter(
+    n => n.kind === 'match',
+  );
+  check(
+    'a match DOES reveal the other person',
+    matchNotes.length > 0 && matchNotes.every(n => n.actorName),
+  );
+
   console.log('\n== safety ==');
   await call('/v1/safety/blocks', { method: 'POST', body: { userId: bobId }, token: A });
   const blockedProfile = await call(`/v1/users/${bobId}`, { token: A });
