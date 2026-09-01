@@ -16,7 +16,8 @@
     "test": "tsx --test test/*.test.mjs",
     "smoke": "node test/smoke.mjs",
     "contract": "node test/contract.mjs",
-    "seed:demo": "node scripts/seed-demo.mjs"
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "test:upload": "node test/upload.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

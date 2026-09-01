@@ -161,12 +161,24 @@ const basicAuth = () =>
     `${config.CLOUDINARY_API_KEY}:${config.CLOUDINARY_API_SECRET}`,
   ).toString('base64');
 
-/** Permanently removes an asset from Cloudinary. */
+/**
+ * Permanently removes an asset from Cloudinary.
+ *
+ * `invalidate` also purges cached copies from the CDN edge. Without it the
+ * original URL keeps serving the image for as long as the edge cache holds
+ * it, which for a deleted profile photo is a privacy problem rather than a
+ * caching curiosity. Cloudinary treats invalidation as best-effort and it can
+ * take up to an hour to propagate.
+ */
 export const destroyAsset = async (publicId: string) => {
   assertConfigured();
 
   const timestamp = Math.floor(Date.now() / 1000);
-  const signature = signParams({ public_id: publicId, timestamp });
+  const signature = signParams({
+    public_id: publicId,
+    timestamp,
+    invalidate: 'true',
+  });
 
   const res = await request(
     `https://api.cloudinary.com/v1_1/${config.CLOUDINARY_CLOUD_NAME}/image/destroy`,
@@ -176,6 +188,7 @@ export const destroyAsset = async (publicId: string) => {
       body: new URLSearchParams({
         public_id: publicId,
         timestamp: String(timestamp),
+        invalidate: 'true',
         api_key: config.CLOUDINARY_API_KEY,
         signature,
       }).toString(),
