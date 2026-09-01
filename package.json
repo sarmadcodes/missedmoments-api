@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "test": "node --test --import tsx test/**/*.test.ts",
-    "smoke": "node test/smoke.mjs"
+    "smoke": "node test/smoke.mjs",
+    "contract": "node test/contract.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
