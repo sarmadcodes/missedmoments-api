@@ -30,11 +30,18 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
   fastify.get('/me', async req => {
     const me = await queryOne(
-      `SELECT id AS "userId", email, name, user_age(birth_date) AS age, city, bio,
-              is_discoverable AS "isDiscoverable", is_invisible AS "isInvisible",
-              notify_all AS "notifyAll", notify_new_match AS "notifyNewMatch",
-              created_at AS "joinedAt"
-         FROM users WHERE id = $1`,
+      `SELECT u.id AS "userId", u.email, u.name,
+              user_age(u.birth_date) AS age, u.city, u.bio,
+              u.is_discoverable AS "isDiscoverable",
+              u.is_invisible AS "isInvisible",
+              u.notify_all AS "notifyAll",
+              u.notify_new_match AS "notifyNewMatch",
+              u.created_at AS "joinedAt",
+              p.url AS "photoUrl"
+         FROM users u
+         LEFT JOIN user_photos p
+                ON p.user_id = u.id AND p.is_primary
+        WHERE u.id = $1`,
       [req.userId],
     );
     if (!me) throw notFound('User not found');
@@ -148,6 +155,15 @@ export default async function userRoutes(fastify: FastifyInstance) {
         client,
       );
       await query('DELETE FROM moments WHERE user_id = $1', [req.userId], client);
+      // Queue every image for CDN removal before dropping the rows, or the
+      // photos stay live on Cloudinary after the account is gone.
+      await query(
+        `INSERT INTO pending_media_deletions (public_id)
+         SELECT public_id FROM user_photos
+          WHERE user_id = $1 AND public_id IS NOT NULL`,
+        [req.userId],
+        client,
+      );
       await query('DELETE FROM user_photos WHERE user_id = $1', [req.userId], client);
       await query(
         `UPDATE matches SET closed_at = now()

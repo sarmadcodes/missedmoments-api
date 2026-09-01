@@ -64,6 +64,12 @@ npm run smoke
 | `GET/POST/DELETE` | `/v1/safety/blocks` | Block list |
 | `POST` | `/v1/safety/reports` | Report a user |
 | `POST` | `/v1/safety/feedback` | Feedback form |
+| `POST` | `/v1/media/upload-ticket` | Signed Cloudinary upload ticket |
+| `POST` | `/v1/media/photos` | Register an uploaded photo |
+| `GET` | `/v1/media/photos` | Your photos |
+| `PATCH` | `/v1/media/photos/:id/primary` | Set the avatar |
+| `DELETE` | `/v1/media/photos/:id` | Remove a photo (queues CDN delete) |
+| `GET` | `/v1/media/status` | Whether uploads are configured |
 
 ## Security decisions
 
@@ -82,19 +88,55 @@ npm run smoke
 
 ## Verified
 
-`npm run smoke` — 37/37 passing, covering registration, duplicate/underage
+`npm run smoke` — 40/40 passing, covering registration, duplicate/underage
 rejection, wrong-password rejection, proximity matching (including that someone
 4 km away is correctly excluded), interest scoring, one-sided likes staying
 silent, mutual likes creating a match, chat access control, unread counts,
-blocking, and refresh-token rotation and reuse-rejection.
+blocking, one-sided likes staying anonymous in the notification feed, and
+refresh-token rotation and reuse-rejection.
+
+`npm run contract` — 30/30, checking every endpoint the app calls returns the
+exact fields the corresponding screen reads.
+
+`npm test` — Cloudinary signature unit tests, pinned against the worked
+example in Cloudinary'"'"'s own documentation.
+
+## Images (Cloudinary)
+
+Uploads are **signed and direct**: the app asks for a signature, uploads
+straight to Cloudinary, then reports the `public_id` back. Image bytes never
+pass through this server, so a slow mobile upload does not tie up an API
+connection, and the API secret never leaves this process.
+
+The reported `public_id` is verified against Cloudinary before it is trusted,
+and must sit under `missedmoments/users/<that user id>/` — otherwise a caller
+could claim any asset in the account, including someone else's photo.
+
+Set these in `.env` from your Cloudinary dashboard:
+
+```
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+
+`GET /v1/media/status` reports whether they are present, so the app can say
+uploads are unavailable rather than failing oddly.
+
+Deletes are queued in `pending_media_deletions` and attempted immediately: a
+Cloudinary outage must not stop someone removing their own photo, and deleting
+an account must not leave its images live on the CDN.
+
+**Moderation is not implemented.** `PHOTO_AUTO_APPROVE=true` publishes uploads
+immediately. The `moderation` column and the `approved` gate already exist, so
+wiring a provider is a change in one place — but until then this is an
+unmoderated image host, which is the main risk before real users.
 
 ## Not built yet
 
 - **Social sign-in** (Google/Apple/Facebook) — the `user_identities` table and
   the app's buttons exist; the token-exchange endpoints do not.
-- **Photo upload / moderation** — `user_photos.moderation` gates on
-  `approved`, but there is no upload endpoint or S3/R2 wiring yet. This is the
-  main gap before real users.
+- **Photo moderation** — see the Images section above.
 - **Push delivery** — device tokens are stored; nothing sends to FCM/APNs.
 - **Scheduled purge** of expired moments — `purgeExpiredMoments()` exists but
   nothing calls it on a timer.

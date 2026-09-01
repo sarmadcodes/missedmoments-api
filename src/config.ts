@@ -20,6 +20,15 @@ const schema = z.object({
 
   GOOGLE_MAPS_API_KEY: z.string().default(''),
 
+  // Cloudinary. Uploads are signed server-side, so the secret never leaves
+  // this process and the app only ever receives a short-lived signature.
+  CLOUDINARY_CLOUD_NAME: z.string().default(''),
+  CLOUDINARY_API_KEY: z.string().default(''),
+  CLOUDINARY_API_SECRET: z.string().default(''),
+  // Until a moderation provider is wired up, uploads are visible immediately.
+  // Set to false to hold every new photo for review instead.
+  PHOTO_AUTO_APPROVE: z.coerce.boolean().default(true),
+
   MOMENT_RADIUS_METRES: z.coerce.number().int().positive().default(150),
   MOMENT_WINDOW_MINUTES: z.coerce.number().int().positive().default(60),
 });

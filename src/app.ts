@@ -17,6 +17,7 @@ import likeRoutes from './modules/likes/likes.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import safetyRoutes from './modules/safety/safety.routes.js';
+import mediaRoutes from './modules/media/media.routes.js';
 
 export const buildApp = async () => {
   const app = Fastify({
@@ -71,6 +72,7 @@ export const buildApp = async () => {
   await app.register(chatRoutes, { prefix: '/v1/chat' });
   await app.register(notificationRoutes, { prefix: '/v1/notifications' });
   await app.register(safetyRoutes, { prefix: '/v1/safety' });
+  await app.register(mediaRoutes, { prefix: '/v1/media' });
 
   return app;
 };
