@@ -11,6 +11,11 @@
  * (the device's own location is the right answer) or the feed will be empty.
  *
  * Safe to re-run; each run creates a fresh set with a unique email suffix.
+ *
+ * Pass --reset to clear previous demo users AND the demo account's swipe
+ * history first. Discover deliberately hides anyone you have already swiped,
+ * so after someone has played with the app the feed goes empty -- correct
+ * behaviour, but not what you want thirty seconds before showing a client.
  */
 const BASE = process.env.BASE ?? 'http://localhost:4100';
 
@@ -175,6 +180,54 @@ const REPLIES = {
 };
 
 
+
+/**
+ * Clears previous demo data so a re-run gives a clean, full feed.
+ *
+ * Removes earlier demo users entirely, and wipes the demo account's likes,
+ * passes and matches. Without the second part the new people would show up
+ * once and then vanish as soon as they were swiped, and any old matches would
+ * still be sitting in the inbox.
+ */
+const resetDemo = async () => {
+  const { default: pg } = await import('pg');
+  const pool = new pg.Pool({
+    connectionString:
+      process.env.DATABASE_URL ??
+      'postgres://missedmoments:missedmoments@localhost:5432/missedmoments',
+  });
+
+  const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [
+    DEMO_EMAIL,
+  ]);
+  const demoId = rows[0]?.id;
+
+  if (demoId) {
+    // Order matters: matches reference users, messages reference matches.
+    await pool.query(
+      `DELETE FROM messages WHERE match_id IN (
+         SELECT id FROM matches WHERE user_a = $1 OR user_b = $1)`,
+      [demoId],
+    );
+    await pool.query('DELETE FROM matches WHERE user_a = $1 OR user_b = $1', [demoId]);
+    await pool.query('DELETE FROM likes WHERE liker_id = $1 OR liked_id = $1', [demoId]);
+    await pool.query('DELETE FROM notifications WHERE user_id = $1 OR actor_id = $1', [
+      demoId,
+    ]);
+    await pool.query('DELETE FROM moments WHERE user_id = $1', [demoId]);
+  }
+
+  const deleted = await pool.query(
+    "DELETE FROM users WHERE email LIKE '%@missedmoments.demo'",
+  );
+
+  await pool.end();
+  console.log(
+    `Reset: removed ${deleted.rowCount} previous demo users and cleared the ` +
+      "demo account's swipe history",
+  );
+};
+
 /**
  * Pre-populates the `places` cache with venues around the demo location.
  *
@@ -236,6 +289,11 @@ const seedVenues = async () => {
 const run = async () => {
   console.log(`\nSeeding demo data at ${BASE_LAT}, ${BASE_LNG}\n`);
   await resetRateLimits();
+
+  if (process.argv.includes('--reset')) {
+    await resetDemo();
+  }
+
   await seedVenues();
 
   // --- the account you will demo from -------------------------------------
@@ -385,6 +443,7 @@ const run = async () => {
   console.log(`  email    : ${DEMO_EMAIL}`);
   console.log(`  password : ${DEMO_PASSWORD}`);
   console.log(`\n  Every demo user's password is: ${PASSWORD}`);
+  console.log('  Re-run with --reset before a demo to clear previous swipes.');
   // This script does not load .env, so do not quote a radius it cannot know.
   console.log(`  Discover fills in when you check in near ${BASE_LAT}, ${BASE_LNG}.
 `);
