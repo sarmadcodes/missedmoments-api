@@ -56,15 +56,25 @@ export const issueRefreshToken = async (userId: string, client?: Sql) => {
  * a fresh one issued, so a stolen token is usable at most once.
  */
 export const rotateRefreshToken = async (token: string) => {
-  const row = await queryOne<{ id: string; user_id: string }>(
-    `SELECT id, user_id FROM refresh_tokens
-      WHERE token_hash = $1
-        AND revoked_at IS NULL
-        AND expires_at > now()`,
+  // Joined against the user's current status so a mid-session suspend/ban
+  // takes effect on this user's next token refresh (at most one access-token
+  // TTL later) rather than only blocking a fresh login up to 30 days later.
+  const row = await queryOne<{ id: string; user_id: string; status: string }>(
+    `SELECT rt.id, rt.user_id, u.status
+       FROM refresh_tokens rt
+       JOIN users u ON u.id = rt.user_id
+      WHERE rt.token_hash = $1
+        AND rt.revoked_at IS NULL
+        AND rt.expires_at > now()`,
     [hash(token)],
   );
 
   if (!row) throw unauthorized('Session expired');
+
+  if (row.status !== 'active' && row.status !== 'deactivated') {
+    await query('UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1', [row.id]);
+    throw unauthorized('This account is no longer available');
+  }
 
   await query('UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1', [row.id]);
   const refreshToken = await issueRefreshToken(row.user_id);

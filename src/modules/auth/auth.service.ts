@@ -99,6 +99,14 @@ export const login = async (email: string, password: string) => {
     throw unauthorized('This account no longer exists');
   }
 
+  if (user.status === 'banned') {
+    throw unauthorized('This account has been banned');
+  }
+
+  if (user.status === 'suspended') {
+    throw unauthorized('This account is temporarily suspended');
+  }
+
   // Signing in reverses a "take a break" deactivation.
   if (user.status === 'deactivated') {
     await query("UPDATE users SET status = 'active' WHERE id = $1", [user.id]);

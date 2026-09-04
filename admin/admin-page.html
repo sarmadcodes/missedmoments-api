@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>MissedMoments Admin</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #0b0b0b; color: #eee; min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid #262626; background: #111;
+    position: sticky; top: 0; z-index: 5;
+  }
+  header h1 { font-size: 15px; margin: 0; color: #d4a84a; }
+  nav { display: flex; gap: 6px; }
+  nav button {
+    background: transparent; border: 1px solid #333; color: #ccc;
+    padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px;
+  }
+  nav button.active { background: #d4a84a; color: #111; border-color: #d4a84a; font-weight: 700; }
+  #logoutBtn { background: transparent; border: 1px solid #661515; color: #ff6b6b; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .card { background: #141414; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: #141414; border: 1px solid #262626; border-radius: 12px; padding: 16px; text-align: center; }
+  .stat b { display: block; font-size: 26px; color: #d4a84a; }
+  .stat span { font-size: 11px; color: #999; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #222; vertical-align: top; }
+  th { color: #888; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  .btn { background: #222; border: 1px solid #3a3a3a; color: #eee; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+  .btn.danger { border-color: #661515; color: #ff8080; }
+  .btn.good { border-color: #1c5c2b; color: #6fd18b; }
+  .btn:hover { filter: brightness(1.2); }
+  .pill { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill.active { background: #123a1f; color: #6fd18b; }
+  .pill.suspended { background: #3a2f12; color: #e0b95e; }
+  .pill.banned, .pill.deleted { background: #3a1212; color: #ff8080; }
+  .pill.deactivated { background: #222; color: #999; }
+  .pill.open { background: #3a2f12; color: #e0b95e; }
+  .pill.actioned { background: #123a1f; color: #6fd18b; }
+  .pill.dismissed { background: #222; color: #999; }
+  input[type=text], input[type=email], input[type=password] {
+    background: #0b0b0b; border: 1px solid #333; color: #eee; padding: 9px 12px;
+    border-radius: 8px; font-size: 13px; width: 100%;
+  }
+  .row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .row > * { flex: 1; }
+  .row .btn { flex: 0 0 auto; }
+  .empty { color: #777; font-size: 13px; padding: 20px; text-align: center; }
+  #loginScreen { max-width: 360px; margin: 90px auto; padding: 24px; }
+  #loginScreen h2 { color: #d4a84a; margin-top: 0; }
+  #loginError { color: #ff6b6b; font-size: 12px; min-height: 16px; margin-top: 6px; }
+  img.thumb { width: 56px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid #333; }
+  .photoGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+  .photoCard { background: #0b0b0b; border: 1px solid #262626; border-radius: 10px; padding: 10px; text-align: center; }
+  .photoCard img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
+  .photoCard small { display: block; color: #999; margin-bottom: 8px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="card">
+  <h2>MissedMoments Admin</h2>
+  <div class="row"><input id="loginEmail" type="email" placeholder="Admin email" /></div>
+  <div class="row"><input id="loginPassword" type="password" placeholder="Password" /></div>
+  <div class="row"><button class="btn good" style="flex:1" onclick="doLogin()">Sign in</button></div>
+  <div id="loginError"></div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>MissedMoments Admin</h1>
+    <nav>
+      <button data-tab="dashboard" class="active" onclick="showTab('dashboard')">Dashboard</button>
+      <button data-tab="users" onclick="showTab('users')">Users</button>
+      <button data-tab="reports" onclick="showTab('reports')">Reports</button>
+      <button data-tab="photos" onclick="showTab('photos')">Photo Queue</button>
+      <button id="logoutBtn" onclick="doLogout()">Sign out</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-dashboard">
+      <div class="grid" id="statsGrid"></div>
+    </section>
+
+    <section id="tab-users" style="display:none">
+      <div class="card">
+        <div class="row">
+          <input id="userSearch" type="text" placeholder="Search by name or email..." onkeydown="if(event.key==='Enter')loadUsers()" />
+          <button class="btn" onclick="loadUsers()">Search</button>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-reports" style="display:none">
+      <div class="card">
+        <table>
+          <thead><tr><th>Reported</th><th>Reporter</th><th>Reason</th><th>Detail</th><th>When</th><th></th></tr></thead>
+          <tbody id="reportsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-photos" style="display:none">
+      <div class="card">
+        <div class="photoGrid" id="photosGrid"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const API = window.location.origin + '/v1/admin';
+let token = localStorage.getItem('mm_admin_token') || '';
+
+function authHeaders() {
+  return { Authorization: 'Bearer ' + token };
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...authHeaders() },
+  });
+  if (res.status === 401 || res.status === 403) {
+    logoutLocal();
+    throw new Error('Session expired or not authorized');
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || ('Request failed: ' + res.status));
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function logoutLocal() {
+  token = '';
+  localStorage.removeItem('mm_admin_token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'block';
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  try {
+    const res = await fetch(API + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) throw new Error('Incorrect email or password');
+    const data = await res.json();
+    token = data.accessToken;
+    localStorage.setItem('mm_admin_token', token);
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    showTab('dashboard');
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+}
+
+function doLogout() {
+  logoutLocal();
+}
+
+function showTab(name) {
+  document.querySelectorAll('nav button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  ['dashboard', 'users', 'reports', 'photos'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+  });
+  if (name === 'dashboard') loadStats();
+  if (name === 'users') loadUsers();
+  if (name === 'reports') loadReports();
+  if (name === 'photos') loadPhotos();
+}
+
+async function loadStats() {
+  try {
+    const s = await api('/stats');
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat"><b>${s.totalUsers}</b><span>Total users</span></div>
+      <div class="stat"><b>${s.activeUsers}</b><span>Active users</span></div>
+      <div class="stat"><b>${s.activeMatches}</b><span>Active matches</span></div>
+      <div class="stat"><b>${s.openReports}</b><span>Open reports</span></div>
+      <div class="stat"><b>${s.pendingPhotos}</b><span>Photos pending review</span></div>
+    `;
+  } catch (err) { alert(err.message); }
+}
+
+async function loadUsers() {
+  const q = document.getElementById('userSearch').value.trim();
+  try {
+    const { users } = await api('/users' + (q ? '?q=' + encodeURIComponent(q) : ''));
+    const body = document.getElementById('usersBody');
+    if (!users.length) { body.innerHTML = '<tr><td colspan="5" class="empty">No users found.</td></tr>'; return; }
+    body.innerHTML = users.map(u => `
+      <tr>
+        <td>${escapeHtml(u.name)}${u.isAdmin ? ' <span class="pill active">admin</span>' : ''}</td>
+        <td>${escapeHtml(u.email)}</td>
+        <td><span class="pill ${u.status}">${u.status}</span></td>
+        <td>${new Date(u.joinedAt).toLocaleDateString()}</td>
+        <td>
+          ${u.isAdmin ? '' : actionButtons(u)}
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) { alert(err.message); }
+}
+
+function actionButtons(u) {
+  if (u.status === 'active' || u.status === 'deactivated') {
+    return `<button class="btn danger" onclick="userAction('${u.userId}','suspend')">Suspend</button>
+            <button class="btn danger" onclick="userAction('${u.userId}','ban')">Ban</button>`;
+  }
+  if (u.status === 'suspended' || u.status === 'banned') {
+    return `<button class="btn good" onclick="userAction('${u.userId}','restore')">Restore</button>`;
+  }
+  return '';
+}
+
+async function userAction(id, action) {
+  if (!confirm('Are you sure you want to ' + action + ' this user?')) return;
+  try {
+    await api('/users/' + id + '/' + action, { method: 'POST' });
+    loadUsers();
+  } catch (err) { alert(err.message); }
+}
+
+async function loadReports() {
+  try {
+    const { reports } = await api('/reports?status=open');
+    const body = document.getElementById('reportsBody');
+    if (!reports.length) { body.innerHTML = '<tr><td colspan="6" class="empty">No open reports.</td></tr>'; return; }
+    body.innerHTML = reports.map(r => `
+      <tr>
+        <td>${escapeHtml(r.reportedName)} <span class="pill ${r.reportedStatus}">${r.reportedStatus}</span></td>
+        <td>${escapeHtml(r.reporterName)}</td>
+        <td>${escapeHtml(r.reason)}</td>
+        <td>${escapeHtml(r.detail || '-')}</td>
+        <td>${new Date(r.createdAt).toLocaleDateString()}</td>
+        <td>
+          <button class="btn danger" onclick="userAction('${r.reportedId}','suspend')">Suspend user</button>
+          <button class="btn" onclick="resolveReport('${r.id}','resolve')">Resolve</button>
+          <button class="btn" onclick="resolveReport('${r.id}','dismiss')">Dismiss</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) { alert(err.message); }
+}
+
+async function resolveReport(id, action) {
+  try {
+    await api('/reports/' + id + '/' + action, { method: 'POST' });
+    loadReports();
+    loadStats();
+  } catch (err) { alert(err.message); }
+}
+
+async function loadPhotos() {
+  try {
+    const { photos } = await api('/photos/pending');
+    const grid = document.getElementById('photosGrid');
+    if (!photos.length) { grid.innerHTML = '<div class="empty">No photos waiting for review.</div>'; return; }
+    grid.innerHTML = photos.map(p => `
+      <div class="photoCard">
+        <img src="${p.url}" loading="lazy" />
+        <small>${escapeHtml(p.userName)}<br/>${escapeHtml(p.userEmail)}</small>
+        <button class="btn good" onclick="photoAction('${p.id}','approve')">Approve</button>
+        <button class="btn danger" onclick="photoAction('${p.id}','reject')">Reject</button>
+      </div>
+    `).join('');
+  } catch (err) { alert(err.message); }
+}
+
+async function photoAction(id, action) {
+  try {
+    await api('/photos/' + id + '/' + action, { method: 'POST' });
+    loadPhotos();
+    loadStats();
+  } catch (err) { alert(err.message); }
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// Boot: if a token is already stored, try the dashboard directly rather than
+// forcing a re-login every page load.
+if (token) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  showTab('dashboard');
+}
+</script>
+</body>
+</html>

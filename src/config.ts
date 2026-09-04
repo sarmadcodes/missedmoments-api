@@ -25,12 +25,25 @@ const schema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().default(''),
   CLOUDINARY_API_KEY: z.string().default(''),
   CLOUDINARY_API_SECRET: z.string().default(''),
-  // Until a moderation provider is wired up, uploads are visible immediately.
-  // Set to false to hold every new photo for review instead.
-  PHOTO_AUTO_APPROVE: z.coerce.boolean().default(true),
+  // No automated moderation provider is wired up, so the safe default holds
+  // every new photo for admin review before anyone else can see it. This is
+  // a dating app; publishing unmoderated photos by default is not an
+  // acceptable launch posture. Set true only once auto-moderation exists.
+  // NOT z.coerce.boolean(): that coerces via JS's Boolean(), so the STRING
+  // "false" (any non-empty string) parses to `true`. Confirmed by direct
+  // test -- PHOTO_AUTO_APPROVE=false in .env was silently being read as
+  // true. This is a real footgun with z.coerce.boolean() on any env var.
+  PHOTO_AUTO_APPROVE: z
+    .string()
+    .default('false')
+    .transform(v => v.toLowerCase() === 'true'),
 
   MOMENT_RADIUS_METRES: z.coerce.number().int().positive().default(150),
   MOMENT_WINDOW_MINUTES: z.coerce.number().int().positive().default(60),
+
+  // The one-off script that grants admin access checks this before writing
+  // is_admin=true, so a leaked DB URL alone cannot be used to self-promote.
+  ADMIN_BOOTSTRAP_KEY: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);

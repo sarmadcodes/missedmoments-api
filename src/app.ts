@@ -3,6 +3,9 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 import { config, isProd } from './config.js';
 import { redis } from './lib/redis.js';
@@ -18,6 +21,9 @@ import chatRoutes from './modules/chat/chat.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import safetyRoutes from './modules/safety/safety.routes.js';
 import mediaRoutes from './modules/media/media.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const buildApp = async () => {
   const app = Fastify({
@@ -73,6 +79,23 @@ export const buildApp = async () => {
   await app.register(notificationRoutes, { prefix: '/v1/notifications' });
   await app.register(safetyRoutes, { prefix: '/v1/safety' });
   await app.register(mediaRoutes, { prefix: '/v1/media' });
+  await app.register(adminRoutes, { prefix: '/v1/admin' });
+
+  // The admin UI is a single static page served same-origin as its own API,
+  // so it needs no CORS entry and no separate deploy. Read once at boot
+  // rather than per-request; it never changes at runtime.
+  //
+  // The file lives in a top-level admin/ folder (not under src/) because
+  // `tsc` does not copy non-TypeScript assets into dist/. __dirname is
+  // <project>/src when running via tsx and <project>/dist when running the
+  // compiled build, so going up one level reaches the project root in both.
+  const adminHtml = await readFile(
+    path.join(__dirname, '..', 'admin', 'admin-page.html'),
+    'utf8',
+  );
+  app.get('/admin', async (_req, reply) => {
+    reply.type('text/html').send(adminHtml);
+  });
 
   return app;
 };
