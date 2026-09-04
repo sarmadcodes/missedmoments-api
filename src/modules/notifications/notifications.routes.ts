@@ -55,4 +55,15 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
 
     return reply.status(204).send();
   });
+
+  // Called on sign-out so a shared or reset device stops receiving this
+  // account's pushes once nobody is signed into it as this user anymore.
+  fastify.delete('/devices/:token', async (req, reply) => {
+    const { token } = z.object({ token: z.string().min(1).max(500) }).parse(req.params);
+    await query('DELETE FROM device_tokens WHERE token = $1 AND user_id = $2', [
+      token,
+      req.userId,
+    ]);
+    return reply.status(204).send();
+  });
 }

@@ -44,6 +44,15 @@ const schema = z.object({
   // The one-off script that grants admin access checks this before writing
   // is_admin=true, so a leaked DB URL alone cannot be used to self-promote.
   ADMIN_BOOTSTRAP_KEY: z.string().default(''),
+
+  // Push notifications (Android + iOS, both through Firebase Cloud Messaging
+  // -- FCM delivers to APNs on Firebase's behalf for iOS, so one service
+  // account covers both platforms; no separate APNs key/cert is needed on
+  // the backend). The whole service account JSON from the Firebase console
+  // (Project settings -> Service accounts -> Generate new private key),
+  // pasted as a single-line string. Empty means push is simply not
+  // attempted -- see lib/push.ts.
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);

@@ -3,6 +3,9 @@ import { z } from 'zod';
 import * as service from './chat.service.js';
 import { verifyAccessToken } from '../../lib/tokens.js';
 import { redis } from '../../lib/redis.js';
+import { sendPushToUser } from '../../lib/push.js';
+
+type ChatMessage = Awaited<ReturnType<typeof service.sendMessage>>;
 
 const paramsSchema = z.object({ matchId: z.string().uuid() });
 
@@ -35,6 +38,28 @@ const deliver = (userId: string, payload: unknown) => {
   for (const ws of set) {
     if (ws.readyState === 1) ws.send(data);
   }
+};
+
+/**
+ * Fans a new message out over the live WebSocket (if the recipient has one
+ * open) and sends a push. Both the REST send and the WS send paths call this
+ * one function rather than duplicating the logic, since a message can arrive
+ * from either.
+ *
+ * No message body ever leaves in the push payload -- only that a message
+ * exists -- so a lock-screen notification preview cannot expose a private
+ * conversation to anyone else with physical access to the phone.
+ */
+const broadcastNewMessage = async (message: ChatMessage) => {
+  await redis.publish(
+    'chat',
+    JSON.stringify({ to: message.recipientId, payload: { type: 'message', message } }),
+  );
+  void sendPushToUser(message.recipientId, {
+    title: 'New message',
+    body: 'You have a new message',
+    data: { type: 'message', matchId: message.matchId },
+  });
 };
 
 export default async function chatRoutes(fastify: FastifyInstance) {
@@ -79,10 +104,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       const { body } = z.object({ body: z.string().min(1).max(2000) }).parse(req.body);
 
       const message = await service.sendMessage(matchId, req.userId!, body);
-      await redis.publish(
-        'chat',
-        JSON.stringify({ to: message.recipientId, payload: { type: 'message', message } }),
-      );
+      await broadcastNewMessage(message);
 
       return reply.status(201).send(message);
     },
@@ -133,13 +155,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
           const message = await service.sendMessage(matchId, userId, body);
           socket.send(JSON.stringify({ type: 'sent', message }));
-          await redis.publish(
-            'chat',
-            JSON.stringify({
-              to: message.recipientId,
-              payload: { type: 'message', message },
-            }),
-          );
+          await broadcastNewMessage(message);
         }
 
         if (event.type === 'read') {
