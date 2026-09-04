@@ -52,7 +52,7 @@ const deliver = (userId: string, payload: unknown) => {
  */
 const broadcastNewMessage = async (message: ChatMessage) => {
   await redis.publish(
-    'chat',
+    'missedmoments:chat',
     JSON.stringify({ to: message.recipientId, payload: { type: 'message', message } }),
   );
   void sendPushToUser(message.recipientId, {
@@ -65,7 +65,7 @@ const broadcastNewMessage = async (message: ChatMessage) => {
 export default async function chatRoutes(fastify: FastifyInstance) {
   // One subscriber per process rebroadcasts to whichever sockets are local.
   const subscriber = redis.duplicate();
-  await subscriber.subscribe('chat');
+  await subscriber.subscribe('missedmoments:chat');
   subscriber.on('message', (_channel, raw) => {
     try {
       const event = JSON.parse(raw) as { to: string; payload: unknown };
